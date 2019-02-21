@@ -10,6 +10,8 @@ import re
 import sqlite3
 
 record_fields = {
+    'PIF': ['version', 'source_system', 'toc_id', 'start_date', 'end_date',
+            'cycle_type', 'cycle_stage', 'creation_date', 'sequence_number'],
     'REF': ['type', 'code', 'description'],
     'TLD': ['traction', 'trailing_load', 'speed', 'ra_gauge', 'description',
             'itps_power_type', 'itps_load', 'limiting_speed'],
@@ -170,7 +172,9 @@ def process_bplan(bplanfile, db):
     with db:
         for ((rec, action), rows) in itertools.groupby(reader, key=lambda r: r[0:2]):
             if rec == 'PIF':
-                pass
+                row = row_parse_function(rec, drop=1)(next(rows))
+                for k, v in enumerate(record_fields[rec]):
+                    metadata[v] = row[k]
             elif rec == 'PIT':
                 row = next(rows)
                 for i in range(1, len(row), 4):
@@ -199,7 +203,7 @@ def insert_statement(rec):
     fields = record_fields[rec]
     return 'INSERT INTO %s (%s) VALUES (%s)' % (rec, ','.join(fields), ','.join(['?']*len(fields)))
 
-def row_parse_function(rec):
+def row_parse_function(rec, drop=2):
     date_fields = []
     for k, v in enumerate(record_fields[rec]):
         if v.endswith('_date'):
@@ -207,7 +211,7 @@ def row_parse_function(rec):
 
     def f(row):
         # Drop record type and action
-        row = row[2:]
+        row = row[drop:]
 
         for k in date_fields:
             try:
