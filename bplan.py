@@ -165,19 +165,37 @@ class BPlanDialect(csv.Dialect):
 
 def process_bplan(bplanfile, db):
     reader = csv.reader(bplanfile, dialect=BPlanDialect)
+    metadata = {}
+    counts = {}
     with db:
         for ((rec, action), rows) in itertools.groupby(reader, key=lambda r: r[0:2]):
             if rec == 'PIF':
                 pass
             elif rec == 'PIT':
-                pass
+                row = next(rows)
+                for i in range(1, len(row), 4):
+                    actual = counts[row[i]]
+                    expected = int(row[i+1])
+                    if actual != expected:
+                        raise Exception("Inconsistent %s counts, expected %s, got %s" %
+                                (row[i], expected, actual))
+                    elif int(row[i+2]) != 0 or int(row[i+3]) != 0:
+                        raise Exception("Expected unsupported record update types.")
+
+                metadata['record_count'] = counts
+
             else:
                 if action == 'A':
-                    db.executemany(insert_statement(rec), map(row_parse_function(rec), rows))
+                    c = db.executemany(insert_statement(rec), map(row_parse_function(rec), rows))
+                    counts[rec] = c.rowcount
                 else:
                     raise NotImplementedError
 
+    return metadata
+
 def insert_statement(rec):
+    if rec not in record_fields:
+        raise NotImplementedError
     fields = record_fields[rec]
     return 'INSERT INTO %s (%s) VALUES (%s)' % (rec, ','.join(fields), ','.join(['?']*len(fields)))
 
@@ -219,4 +237,5 @@ if __name__ == "__main__":
         pass
 
     db = create_db(db_path)
-    process_bplan(bplan, db)
+    metadata = process_bplan(bplan, db)
+    print(metadata)
