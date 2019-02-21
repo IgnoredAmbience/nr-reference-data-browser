@@ -151,17 +151,17 @@ def create_db(dbpath):
 
     return db
 
+def open_bplan(path):
+    if path.suffix == '.gz':
+        return gzip.open(path, 'rt', encoding='windows-1252')
+    else:
+        return open(path, 'r', encoding='windows-1252')
+
 class BPlanDialect(csv.Dialect):
     delimiter = '\t'
     lineterminator = '\r\n'
     quoting = csv.QUOTE_NONE
     strict = True
-
-def open_bplan(path):
-    if path.suffix == '.gz':
-        return gzip.open(path, 'r', encoding='windows-1252')
-    else:
-        return open(path, 'r', encoding='windows-1252')
 
 def process_bplan(bplanfile, db):
     reader = csv.reader(bplanfile, dialect=BPlanDialect)
@@ -209,7 +209,7 @@ if __name__ == "__main__":
         os.sys.exit(0)
 
     bplan_path = PurePath(os.sys.argv[1])
-    db_path = bplan_path.with_suffix('sqlite')
+    db_path = bplan_path.with_suffix('.sqlite')
 
     bplan = open_bplan(bplan_path)
 
