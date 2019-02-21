@@ -4,13 +4,14 @@ from datetime import datetime
 import functools
 import gzip
 import itertools
+import json
 import os
-from pathlib import PurePath
+from pathlib import Path
 import re
 import sqlite3
 
 record_fields = {
-    'PIF': ['version', 'source_system', 'toc_id', 'start_date', 'end_date',
+    'PIF': ['version', 'source_system', 'toc', 'start_date', 'end_date',
             'cycle_type', 'cycle_stage', 'creation_date', 'sequence_number'],
     'REF': ['type', 'code', 'description'],
     'TLD': ['traction', 'trailing_load', 'speed', 'ra_gauge', 'description',
@@ -224,14 +225,58 @@ def row_parse_function(rec, drop=2):
 
     return f
 
+def metadata_file_template():
+    return {
+        "title": "Network Rail Open Data Reference Databases",
+        "description": "Reference data used by Network Rail for planning purposes",
+        "license": "Network Rail Infrastructure Ltd Data Feeds Licence",
+        "license_url": "https://www.networkrail.co.uk/who-we-are/transparency-and-ethics/transparency/open-data-feeds/network-rail-infrastructure-limited-data-feeds-licence/",
+        "source": "Network Rail Infrastructure Ltd"
+    }
+
+def generate_metadata(item):
+    return {
+        "title": f"BPLAN {item['start_date']:%B %Y}",
+        "description": (
+            f"BPLAN database valid for the timetable period: {item['start_date']:%-d %B %Y} to "
+            f"{item['end_date']:%-d %B %Y}. Database published: {item['creation_date']:%-d %B %Y}, "
+            f"by: {item['toc']}, source system: {item['source_system']}."
+        ),
+        "source_url": "https://wiki.openraildata.com/index.php?title=BPLAN_Geography_Data",
+        "tables": {
+            "REF": {"description": "Reference Codes"},
+            "LOC": {"description": "Locations"},
+            "PLT": {"description": "Platforms and Sidings"},
+            "NWK": {"description": "Network Links"},
+            "TLD": {"description": "Timing Loads"},
+            "TLK": {"description": "Timing Links"}
+        }
+    }
+
+def update_metadata_file(path, item):
+    try:
+        with path.open() as f:
+            metadata = json.load(f)
+    except:
+        metadata = metadata_file_template()
+
+    if 'databases' not in metadata:
+        metadata['databases'] = {}
+
+    metadata['databases'][item['filename']] = generate_metadata(item)
+
+    with path.open('w') as f:
+        json.dump(metadata, f)
+
 if __name__ == "__main__":
     if len(os.sys.argv) < 2:
         print("Usage: bplan.py bplan-file[.gz]")
         print("Note: bplan-file.sqlite will be overwritten.")
         os.sys.exit(0)
 
-    bplan_path = PurePath(os.sys.argv[1])
+    bplan_path = Path(os.sys.argv[1])
     db_path = bplan_path.with_suffix('.sqlite')
+    metadata_path = bplan_path.with_name('metadata.json')
 
     bplan = open_bplan(bplan_path)
 
@@ -242,4 +287,5 @@ if __name__ == "__main__":
 
     db = create_db(db_path)
     metadata = process_bplan(bplan, db)
-    print(metadata)
+    metadata['filename'] = bplan_path.stem
+    update_metadata_file(metadata_path, metadata)
