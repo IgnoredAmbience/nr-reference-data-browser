@@ -38,12 +38,12 @@ def create_db(dbpath):
         # BPLAN Database Schema
         db.executescript('''
             CREATE TABLE REF (
-                type TEXT,
-                code TEXT,
-                description TEXT,
-                type_code_type TEXT DEFAULT 'REF',
-                PRIMARY KEY (type, code),
-                FOREIGN KEY (type_code_type, type) REFERENCES REF
+              type TEXT,
+              code TEXT,
+              description TEXT,
+              type_code_type TEXT DEFAULT 'REF',
+              PRIMARY KEY (type, code),
+              FOREIGN KEY (type_code_type, type) REFERENCES REF
             );
             CREATE TABLE TLD (
               traction TEXT,
@@ -136,18 +136,18 @@ def create_db(dbpath):
 
         # Spatial Columns
         db.execute("SELECT AddGeometryColumn('LOC', 'geom', 27700, 'POINT', 2);")
-        db.execute('''CREATE TRIGGER insert_LOC_geom AFTER INSERT ON LOC
-                    WHEN NEW.easting != 0 AND NEW.easting != 999999
-                    AND NEW.northing != 0 AND NEW.northing != 999999 BEGIN
-                      UPDATE LOC SET geom = MakePoint(easting, northing, 27700)
-                      WHERE rowid = NEW.rowid;
-                    END;''')
-        db.execute('''CREATE TRIGGER update_LOC_geom AFTER UPDATE OF easting, northing ON LOC
-                    WHEN NEW.easting != 0 AND NEW.easting != 999999
-                    AND NEW.northing != 0 AND NEW.northing != 999999 BEGIN
-                      UPDATE LOC SET geom = MakePoint(easting, northing, 27700)
-                      WHERE rowid = NEW.rowid;
-                    END;''')
+        db.execute('''
+          CREATE TRIGGER insert_LOC_geom AFTER INSERT ON LOC
+            WHEN NEW.easting != 0 AND NEW.easting != 999999
+            AND  NEW.northing != 0 AND NEW.northing != 999999 BEGIN
+          UPDATE LOC SET geom = MakePoint(easting, northing, 27700) WHERE rowid = NEW.rowid; END;
+        ''')
+        db.execute('''
+          CREATE TRIGGER update_LOC_geom AFTER UPDATE OF easting, northing ON LOC
+            WHEN NEW.easting != 0 AND NEW.easting != 999999
+            AND  NEW.northing != 0 AND NEW.northing != 999999 BEGIN
+          UPDATE LOC SET geom = MakePoint(easting, northing, 27700) WHERE rowid = NEW.rowid; END;
+        ''')
 
     return db
 
