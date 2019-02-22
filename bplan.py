@@ -253,7 +253,7 @@ def generate_metadata(item):
         }
     }
 
-def update_metadata_file(path, item):
+def load_metadata(path):
     try:
         with path.open() as f:
             metadata = json.load(f)
@@ -263,29 +263,36 @@ def update_metadata_file(path, item):
     if 'databases' not in metadata:
         metadata['databases'] = {}
 
-    metadata['databases'][item['filename']] = generate_metadata(item)
-
-    with path.open('w') as f:
-        json.dump(metadata, f)
+    return metadata
 
 if __name__ == "__main__":
     if len(os.sys.argv) < 2:
-        print("Usage: bplan.py bplan-file[.gz]")
+        print("Usage: bplan.py bplan-file[.gz] [...]")
         print("Note: bplan-file.sqlite will be overwritten.")
         os.sys.exit(0)
 
-    bplan_path = Path(os.sys.argv[1])
-    db_path = bplan_path.with_suffix('.sqlite')
-    metadata_path = bplan_path.with_name('metadata.json')
+    metadata_file = Path('metadata.json')
+    metadata = load_metadata(metadata_file)
 
-    bplan = open_bplan(bplan_path)
+    for f in os.sys.argv[1:]:
+        try:
+            bplan_path = Path(f)
+            db_path = bplan_path.with_suffix('.sqlite')
+            metadata_path = bplan_path.with_name('metadata.json')
 
-    try:
-        os.remove(db_path)
-    except:
-        pass
+            bplan = open_bplan(bplan_path)
 
-    db = create_db(db_path)
-    metadata = process_bplan(bplan, db)
-    metadata['filename'] = bplan_path.stem
-    update_metadata_file(metadata_path, metadata)
+            try:
+                os.remove(db_path)
+            except:
+                pass
+
+            db = create_db(db_path)
+            db_metadata = process_bplan(bplan, db)
+            metadata['databases'][bplan_path.stem] = generate_metadata(db_metadata)
+        except Exception as e:
+            print(f"Unable to process {f}:", file=os.sys.stderr)
+            print(e, file=os.sys.stderr)
+
+    with metadata_file.open('w') as f:
+        json.dump(metadata, f)
