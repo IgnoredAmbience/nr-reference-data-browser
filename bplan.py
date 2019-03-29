@@ -170,26 +170,26 @@ def process_bplan(bplanfile, db):
     reader = csv.reader(bplanfile, dialect=BPlanDialect)
     metadata = {}
     counts = {}
-    with db:
-        for ((rec, action), rows) in itertools.groupby(reader, key=lambda r: r[0:2]):
-            if rec == 'PIF':
-                row = row_parse_function(rec, drop=1)(next(rows))
-                for k, v in enumerate(record_fields[rec]):
-                    metadata[v] = row[k]
-            elif rec == 'PIT':
-                row = next(rows)
-                for i in range(1, len(row), 4):
-                    actual = counts[row[i]]
-                    expected = int(row[i+1])
-                    if actual != expected:
-                        raise Exception("Inconsistent %s counts, expected %s, got %s" %
-                                (row[i], expected, actual))
-                    elif int(row[i+2]) != 0 or int(row[i+3]) != 0:
-                        raise Exception("Expected unsupported record update types.")
+    for ((rec, action), rows) in itertools.groupby(reader, key=lambda r: r[0:2]):
+        if rec == 'PIF':
+            row = row_parse_function(rec, drop=1)(next(rows))
+            for k, v in enumerate(record_fields[rec]):
+                metadata[v] = row[k]
+        elif rec == 'PIT':
+            row = next(rows)
+            for i in range(1, len(row), 4):
+                actual = counts[row[i]]
+                expected = int(row[i+1])
+                if actual != expected:
+                    raise Exception("Inconsistent %s counts, expected %s, got %s" %
+                            (row[i], expected, actual))
+                elif int(row[i+2]) != 0 or int(row[i+3]) != 0:
+                    raise Exception("Expected unsupported record update types.")
 
-                metadata['record_count'] = counts
+            metadata['record_count'] = counts
 
-            else:
+        else:
+            with db:
                 if action == 'A':
                     c = db.executemany(insert_statement(rec), map(row_parse_function(rec), rows))
                     counts[rec] = c.rowcount
